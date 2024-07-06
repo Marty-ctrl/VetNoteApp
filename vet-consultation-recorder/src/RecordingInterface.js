@@ -1,13 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const RecordingInterface = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [audioChunks, setAudioChunks] = useState([]);
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    if (isRecording && !mediaRecorder) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          const recorder = new MediaRecorder(stream);
+          recorder.ondataavailable = event => {
+            setAudioChunks(prevChunks => [...prevChunks, event.data]);
+          };
+          recorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            audioRef.current.src = audioUrl;
+          };
+          recorder.start();
+          setMediaRecorder(recorder);
+        })
+        .catch(error => {
+          console.error("Error accessing microphone:", error);
+        });
+    } else if (!isRecording && mediaRecorder) {
+      mediaRecorder.stop();
+      setMediaRecorder(null);
+    }
+  }, [isRecording, mediaRecorder, audioChunks]);
 
   const toggleRecording = () => {
     if (hasPermission) {
       setIsRecording(!isRecording);
-      // Placeholder for actual recording logic
+      setAudioChunks([]);  // Reset audio chunks
       console.log(isRecording ? 'Stopped recording' : 'Started recording');
     } else {
       alert('Please confirm you have permission before recording.');
@@ -46,6 +74,10 @@ const RecordingInterface = () => {
       >
         {isRecording ? 'Stop Recording' : 'Start Recording'}
       </button>
+
+      <div className="mt-4">
+        <audio ref={audioRef} controls />
+      </div>
     </div>
   );
 };
