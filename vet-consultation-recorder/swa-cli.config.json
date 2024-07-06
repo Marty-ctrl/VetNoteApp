@@ -6,7 +6,9 @@
       "outputLocation": "build",
       "appBuildCommand": "npm run build",
       "run": "npm start",
-      "appDevserverUrl": "http://localhost:3000"
+      "appDevserverUrl": "http://localhost:3000",
+      "appName": "vet-consultation-recorder",
+      "resourceGroup": "vet-consultation-recorder-rg"
     }
   }
 }
