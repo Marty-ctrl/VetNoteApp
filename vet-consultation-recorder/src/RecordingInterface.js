@@ -18,15 +18,8 @@ const RecordingInterface = () => {
             console.log("Data available from recorder", event.data.size);
             setAudioChunks(prevChunks => [...prevChunks, event.data]);
           };
-          recorder.onstop = () => {
-            console.log("Recorder stopped");
-            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-            const url = URL.createObjectURL(audioBlob);
-            setAudioUrl(url);
-            console.log("Audio blob created", url);
-          };
-          recorder.start();
           setMediaRecorder(recorder);
+          recorder.start();
           console.log("Recorder started");
         })
         .catch(error => {
@@ -36,14 +29,27 @@ const RecordingInterface = () => {
       mediaRecorder.stop();
       setMediaRecorder(null);
     }
-  }, [isRecording, mediaRecorder, audioChunks]);
+  }, [isRecording, mediaRecorder]);
+
+  useEffect(() => {
+    if (audioChunks.length > 0 && !isRecording) {
+      const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+      const url = URL.createObjectURL(audioBlob);
+      setAudioUrl(url);
+      console.log("Audio blob created", url);
+    }
+  }, [audioChunks, isRecording]);
 
   const toggleRecording = () => {
     if (hasPermission) {
       setIsRecording(!isRecording);
-      setAudioChunks([]);  // Reset audio chunks
-      setAudioUrl('');  // Clear previous recording
-      console.log(isRecording ? 'Stopped recording' : 'Started recording');
+      if (isRecording) {
+        console.log('Stopped recording');
+      } else {
+        setAudioChunks([]);  // Reset audio chunks
+        setAudioUrl('');  // Clear previous recording
+        console.log('Started recording');
+      }
     } else {
       alert('Please confirm you have permission before recording.');
     }
