@@ -5,23 +5,29 @@ const RecordingInterface = () => {
   const [hasPermission, setHasPermission] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const [audioChunks, setAudioChunks] = useState([]);
+  const [audioUrl, setAudioUrl] = useState('');
   const audioRef = useRef(null);
 
   useEffect(() => {
     if (isRecording && !mediaRecorder) {
       navigator.mediaDevices.getUserMedia({ audio: true })
         .then(stream => {
+          console.log("Audio stream obtained");
           const recorder = new MediaRecorder(stream);
           recorder.ondataavailable = event => {
+            console.log("Data available from recorder", event.data.size);
             setAudioChunks(prevChunks => [...prevChunks, event.data]);
           };
           recorder.onstop = () => {
+            console.log("Recorder stopped");
             const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-            const audioUrl = URL.createObjectURL(audioBlob);
-            audioRef.current.src = audioUrl;
+            const url = URL.createObjectURL(audioBlob);
+            setAudioUrl(url);
+            console.log("Audio blob created", url);
           };
           recorder.start();
           setMediaRecorder(recorder);
+          console.log("Recorder started");
         })
         .catch(error => {
           console.error("Error accessing microphone:", error);
@@ -36,6 +42,7 @@ const RecordingInterface = () => {
     if (hasPermission) {
       setIsRecording(!isRecording);
       setAudioChunks([]);  // Reset audio chunks
+      setAudioUrl('');  // Clear previous recording
       console.log(isRecording ? 'Stopped recording' : 'Started recording');
     } else {
       alert('Please confirm you have permission before recording.');
@@ -75,9 +82,17 @@ const RecordingInterface = () => {
         {isRecording ? 'Stop Recording' : 'Start Recording'}
       </button>
 
-      <div className="mt-4">
-        <audio ref={audioRef} controls />
-      </div>
+      {isRecording && (
+        <div className="mt-2 text-red-500 animate-pulse">
+          Recording in progress...
+        </div>
+      )}
+
+      {audioUrl && (
+        <div className="mt-4">
+          <audio ref={audioRef} controls src={audioUrl} />
+        </div>
+      )}
     </div>
   );
 };
