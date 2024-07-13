@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 const RecordingInterface = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -7,6 +7,7 @@ const RecordingInterface = () => {
   const [interimTranscription, setInterimTranscription] = useState('');
   const recognitionRef = useRef(null);
   const interimTranscriptionRef = useRef('');
+  const lastProcessedResultIndex = useRef(0); // Keep track of the last processed result index
 
   const toggleRecording = () => {
     if (hasPermission) {
@@ -36,14 +37,26 @@ const RecordingInterface = () => {
     recognition.continuous = true;
 
     recognition.onresult = (event) => {
-      interimTranscriptionRef.current = Array.from(event.results)
-        .map(result => result[0].transcript)
-        .join(' ');
+      let interimText = '';
+      for (let i = lastProcessedResultIndex.current; i < event.results.length; i++) {
+        interimText += event.results[i][0].transcript + ' ';
+      }
+      lastProcessedResultIndex.current = event.results.length;
+      interimTranscriptionRef.current = interimText.trim();
       setInterimTranscription(interimTranscriptionRef.current);
     };
 
     recognition.onerror = (event) => {
       console.error('Error during transcription:', event.error);
+    };
+
+    recognition.onend = () => {
+      // Restart recognition automatically if still in recording mode
+      if (isRecording) {
+        setTimeout(() => {
+          recognition.start();
+        }, 500); // Small delay to manage mobile automatic stopping
+      }
     };
 
     recognition.start();
@@ -55,6 +68,8 @@ const RecordingInterface = () => {
       recognitionRef.current.onend = () => {
         recognitionRef.current = null;
       };
+      // Reset last processed index when stopping
+      lastProcessedResultIndex.current = 0;
     }
   };
 
@@ -64,7 +79,6 @@ const RecordingInterface = () => {
       return updatedTranscription;
     });
   };
-  
 
   return (
     <div className="p-4 max-w-md mx-auto bg-white rounded-xl shadow-md">
