@@ -6,11 +6,10 @@ const RecordingInterface = () => {
   const [fullTranscription, setFullTranscription] = useState('');
   const [interimTranscription, setInterimTranscription] = useState('');
   const recognitionRef = useRef(null);
-  const interimTranscriptionRef = useRef('');
+  const finalTranscriptionRef = useRef('');
 
   const toggleRecording = () => {
     if (hasPermission) {
-      setIsRecording(!isRecording);
       if (isRecording) {
         stopRecording();
       } else {
@@ -36,21 +35,27 @@ const RecordingInterface = () => {
     recognition.continuous = true;
 
     recognition.onresult = (event) => {
-      interimTranscriptionRef.current = Array.from(event.results)
-        .map(result => result[0].transcript)
-        .join(' ');
-      setInterimTranscription(interimTranscriptionRef.current);
+      let interimTranscript = '';
+      let finalTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+        } else {
+          interimTranscript += event.results[i][0].transcript;
+        }
+      }
+
+      finalTranscriptionRef.current += finalTranscript;
+      setInterimTranscription(interimTranscript);
     };
 
     recognition.onerror = (event) => {
       console.error('Error during transcription:', event.error);
     };
-
-    recognition.onend = () => {
-      console.log('Recognition ended.');
-    };
-
+    
     recognition.start();
+    setIsRecording(true);
   };
 
   const stopRecording = () => {
@@ -58,23 +63,28 @@ const RecordingInterface = () => {
       recognitionRef.current.stop();
       recognitionRef.current.onend = () => {
         recognitionRef.current = null;
+        setIsRecording(false);
+        setInterimTranscription('');
+        // Add the final transcription to the full transcription
+        setFullTranscription(prev => prev + ' ' + finalTranscriptionRef.current);
+        finalTranscriptionRef.current = '';
       };
     }
   };
 
-  const saveTranscription = () => { 
+  const saveTranscription = () => {
     setFullTranscription(prev => {
-      const updatedTranscription = prev + ' ' + interimTranscriptionRef.current;
-      return updatedTranscription;
+      const updatedTranscription = prev + ' ' + finalTranscriptionRef.current + ' ' + interimTranscription;
+      return updatedTranscription.trim();
     });
-    interimTranscriptionRef.current = '';
-    setInterimTranscription('');
+    //finalTranscriptionRef.current = '';
+    //setInterimTranscription('');
   };
 
   return (
     <div className="p-4 max-w-md mx-auto bg-white rounded-xl shadow-md">
       <h1 className="text-xl font-bold mb-4">Vet Consultation Recorder</h1>
-      
+
       <div className="mb-4 p-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700">
         <p className="font-bold">Disclaimer:</p>
         <p>Before recording, ensure you have explicit permission from all individuals present in the room, including the pet owner and any staff members.</p>
@@ -82,8 +92,8 @@ const RecordingInterface = () => {
 
       <div className="mb-4">
         <label className="flex items-center">
-          <input 
-            type="checkbox" 
+          <input
+            type="checkbox"
             checked={hasPermission}
             onChange={(e) => setHasPermission(e.target.checked)}
             className="mr-2"
@@ -95,8 +105,8 @@ const RecordingInterface = () => {
       <button
         onClick={toggleRecording}
         className={`px-4 py-2 rounded-full ${
-          isRecording 
-            ? 'bg-red-500 hover:bg-red-600' 
+          isRecording
+            ? 'bg-red-500 hover:bg-red-600'
             : 'bg-green-500 hover:bg-green-600'
         } text-white font-bold ${!hasPermission && 'opacity-50 cursor-not-allowed'}`}
         disabled={!hasPermission}
@@ -110,10 +120,11 @@ const RecordingInterface = () => {
         </div>
       )}
 
-      {interimTranscription && (
+      {(interimTranscription || finalTranscriptionRef.current) && (
         <div className="mt-4 p-3 bg-gray-100 rounded">
-          <h2 className="font-bold mb-2">Live Transcription:</h2>
-          <p>{interimTranscription}</p>
+          <h2 className="font-bold mb-2">Current Transcription:</h2>
+          <p>{finalTranscriptionRef.current}</p>
+          <p className="text-gray-500">{interimTranscription}</p>
         </div>
       )}
 
