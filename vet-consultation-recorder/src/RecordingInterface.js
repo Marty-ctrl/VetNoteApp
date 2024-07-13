@@ -1,59 +1,70 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 
 const RecordingInterface = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState(null);
-  const [audioChunks, setAudioChunks] = useState([]);
-  const [audioUrl, setAudioUrl] = useState('');
-  const audioRef = useRef(null);
-
-  useEffect(() => {
-    if (isRecording && !mediaRecorder) {
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-          console.log("Audio stream obtained");
-          const recorder = new MediaRecorder(stream);
-          recorder.ondataavailable = event => {
-            console.log("Data available from recorder", event.data.size);
-            setAudioChunks(prevChunks => [...prevChunks, event.data]);
-          };
-          setMediaRecorder(recorder);
-          recorder.start();
-          console.log("Recorder started");
-        })
-        .catch(error => {
-          console.error("Error accessing microphone:", error);
-        });
-    } else if (!isRecording && mediaRecorder) {
-      mediaRecorder.stop();
-      setMediaRecorder(null);
-    }
-  }, [isRecording, mediaRecorder]);
-
-  useEffect(() => {
-    if (audioChunks.length > 0 && !isRecording) {
-      const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-      const url = URL.createObjectURL(audioBlob);
-      setAudioUrl(url);
-      console.log("Audio blob created", url);
-    }
-  }, [audioChunks, isRecording]);
+  const [fullTranscription, setFullTranscription] = useState('');
+  const [interimTranscription, setInterimTranscription] = useState('');
+  const recognitionRef = useRef(null);
+  const interimTranscriptionRef = useRef('');
 
   const toggleRecording = () => {
     if (hasPermission) {
       setIsRecording(!isRecording);
       if (isRecording) {
-        console.log('Stopped recording');
+        stopRecording();
       } else {
-        setAudioChunks([]);  // Reset audio chunks
-        setAudioUrl('');  // Clear previous recording
-        console.log('Started recording');
+        startRecording();
       }
     } else {
       alert('Please confirm you have permission before recording.');
     }
   };
+
+  const startRecording = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.error('Speech recognition not supported in this browser');
+      setFullTranscription(prev => prev + '\nSpeech recognition not supported in this browser');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+    recognition.continuous = true;
+
+    recognition.onresult = (event) => {
+      interimTranscriptionRef.current = Array.from(event.results)
+        .map(result => result[0].transcript)
+        .join(' ');
+      setInterimTranscription(interimTranscriptionRef.current);
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Error during transcription:', event.error);
+    };
+
+    recognition.start();
+  };
+
+  const stopRecording = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current.onend = () => {
+        recognitionRef.current = null;
+      };
+    }
+  };
+
+  const saveTranscription = () => { 
+    setFullTranscription(prev => {
+      const updatedTranscription = prev + ' ' + interimTranscriptionRef.current;
+      return updatedTranscription;
+    });
+  };
+  
 
   return (
     <div className="p-4 max-w-md mx-auto bg-white rounded-xl shadow-md">
@@ -94,9 +105,24 @@ const RecordingInterface = () => {
         </div>
       )}
 
-      {audioUrl && (
-        <div className="mt-4">
-          <audio ref={audioRef} controls src={audioUrl} />
+      {interimTranscription && (
+        <div className="mt-4 p-3 bg-gray-100 rounded">
+          <h2 className="font-bold mb-2">Live Transcription:</h2>
+          <p>{interimTranscription}</p>
+        </div>
+      )}
+
+      <button
+        onClick={saveTranscription}
+        className="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full"
+      >
+        Save Transcription
+      </button>
+
+      {fullTranscription && (
+        <div className="mt-4 p-3 bg-gray-100 rounded">
+          <h2 className="font-bold mb-2">Full Transcription:</h2>
+          <p>{fullTranscription}</p>
         </div>
       )}
     </div>
