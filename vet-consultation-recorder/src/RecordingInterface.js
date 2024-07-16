@@ -5,8 +5,16 @@ const RecordingInterface = () => {
   const [hasPermission, setHasPermission] = useState(false);
   const [fullTranscription, setFullTranscription] = useState('');
   const [interimTranscription, setInterimTranscription] = useState('');
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
   const recognitionRef = useRef(null);
   const finalTranscriptionRef = useRef('');
+
+  useEffect(() => {
+    const userAgent = navigator.userAgent.toLowerCase();
+    setIsMobileDevice(
+      /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent)
+    );
+  }, []);
 
   const toggleRecording = () => {
     if (hasPermission) {
@@ -65,8 +73,7 @@ const RecordingInterface = () => {
         recognitionRef.current = null;
         setIsRecording(false);
         setInterimTranscription('');
-        // Add the final transcription to the full transcription
-        setFullTranscription(prev => prev + ' ' + finalTranscriptionRef.current);
+        setFullTranscription(prev => (prev + ' ' + finalTranscriptionRef.current).trim());
         finalTranscriptionRef.current = '';
       };
     }
@@ -77,9 +84,21 @@ const RecordingInterface = () => {
       const updatedTranscription = prev + ' ' + finalTranscriptionRef.current + ' ' + interimTranscription;
       return updatedTranscription.trim();
     });
-    //finalTranscriptionRef.current = '';
-    //setInterimTranscription('');
+    finalTranscriptionRef.current = '';
+    setInterimTranscription('');
   };
+
+  if (isMobileDevice) {
+    return (
+      <div className="p-4 max-w-md mx-auto bg-white rounded-xl shadow-md">
+        <h1 className="text-xl font-bold mb-4">Vet Consultation Recorder</h1>
+        <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700">
+          <p className="font-bold">Compatibility Warning:</p>
+          <p>This application may not function correctly on mobile devices. For the best experience, please use a desktop browser.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 max-w-md mx-auto bg-white rounded-xl shadow-md">
