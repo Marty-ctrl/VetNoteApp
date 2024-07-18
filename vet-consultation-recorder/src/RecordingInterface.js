@@ -76,6 +76,22 @@ const RecordingInterface = () => {
     }
   };
 
+  const saveTranscription = () => {
+    const transcription = finalTranscriptionRef.current + ' ' + interimTranscription;
+    // Here you could save to local storage, send to a server, or trigger a download
+    console.log('Saving transcription:', transcription);
+    // For example, to trigger a download:
+    const blob = new Blob([transcription], {type: 'text/plain'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
+    a.href = url;
+    a.download = `transcription-${date}.txt`;
+    a.href = url;
+    a.download = 'transcription.txt';
+    a.click();
+  };
+
   if (isMobileDevice) {
     return (
       <div className="p-4 max-w-md mx-auto bg-white rounded-xl shadow-md">
@@ -134,6 +150,15 @@ const RecordingInterface = () => {
           <p className="text-gray-500">{interimTranscription}</p>
         </div>
       )}
+      <div> 
+        <button
+            onClick={saveTranscription}
+            className="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full"
+          >
+            Save Transcription
+        </button>
+    </div>
+
     </div>
   );
 };
