@@ -72,20 +72,8 @@ const RecordingInterface = () => {
       recognitionRef.current.onend = () => {
         recognitionRef.current = null;
         setIsRecording(false);
-        setInterimTranscription('');
-        setFullTranscription(prev => (prev + ' ' + finalTranscriptionRef.current).trim());
-        finalTranscriptionRef.current = '';
       };
     }
-  };
-
-  const saveTranscription = () => {
-    setFullTranscription(prev => {
-      const updatedTranscription = prev + ' ' + finalTranscriptionRef.current + ' ' + interimTranscription;
-      return updatedTranscription.trim();
-    });
-    finalTranscriptionRef.current = '';
-    setInterimTranscription('');
   };
 
   if (isMobileDevice) {
@@ -144,20 +132,6 @@ const RecordingInterface = () => {
           <h2 className="font-bold mb-2">Current Transcription:</h2>
           <p>{finalTranscriptionRef.current}</p>
           <p className="text-gray-500">{interimTranscription}</p>
-        </div>
-      )}
-
-      <button
-        onClick={saveTranscription}
-        className="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full"
-      >
-        Save Transcription
-      </button>
-
-      {fullTranscription && (
-        <div className="mt-4 p-3 bg-gray-100 rounded">
-          <h2 className="font-bold mb-2">Full Transcription:</h2>
-          <p>{fullTranscription}</p>
         </div>
       )}
     </div>
