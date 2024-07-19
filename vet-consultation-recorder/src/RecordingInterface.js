@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { OpenAIClient, AzureKeyCredential } from "@azure/openai";
+import ReactMarkdown from 'react-markdown';
 
 const RecordingInterface = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -8,6 +10,8 @@ const RecordingInterface = () => {
   const [isMobileDevice, setIsMobileDevice] = useState(false);
   const recognitionRef = useRef(null);
   const finalTranscriptionRef = useRef('');
+  const [aiResponse, setAiResponse] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const userAgent = navigator.userAgent.toLowerCase();
@@ -78,18 +82,43 @@ const RecordingInterface = () => {
 
   const saveTranscription = () => {
     const transcription = finalTranscriptionRef.current + ' ' + interimTranscription;
-    // Here you could save to local storage, send to a server, or trigger a download
     console.log('Saving transcription:', transcription);
-    // For example, to trigger a download:
     const blob = new Blob([transcription], {type: 'text/plain'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const date = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
     a.href = url;
     a.download = `transcription-${date}.txt`;
-    a.href = url;
-    a.download = 'transcription.txt';
     a.click();
+  };
+
+  const sendToAzureOpenAI = async (transcription) => {
+    setIsLoading(true);
+    console.log('Endpoint:', process.env.REACT_APP_AZURE_OPENAI_ENDPOINT);
+    console.log('Key:', process.env.REACT_APP_AZURE_OPENAI_KEY);
+
+    const client = new OpenAIClient(
+      process.env.REACT_APP_AZURE_OPENAI_ENDPOINT,
+      new AzureKeyCredential(process.env.REACT_APP_AZURE_OPENAI_KEY)
+    );
+
+    try {
+      const response = await client.getChatCompletions(
+        process.env.REACT_APP_AZURE_OPENAI_DEPLOYMENT,
+        [
+          { role: "system", content: "You are a veterinary assistant. Summarize the key points from the consultation transcript provided into a SOAP format." },
+          { role: "user", content: transcription }
+        ]
+      );
+
+      console.log(response.choices[0].message.content);
+      setAiResponse(response.choices[0].message.content);
+    } catch (error) {
+      console.error("Error calling Azure OpenAI:", error);
+      setAiResponse("Error processing the transcription.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isMobileDevice) {
@@ -105,7 +134,7 @@ const RecordingInterface = () => {
   }
 
   return (
-    <div className="p-4 max-w-md mx-auto bg-white rounded-xl shadow-md">
+    <div className="p-4 max-w-4xl mx-auto bg-white rounded-xl shadow-md">
       <h1 className="text-xl font-bold mb-4">Vet Consultation Recorder</h1>
 
       <div className="mb-4 p-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700">
@@ -125,17 +154,33 @@ const RecordingInterface = () => {
         </label>
       </div>
 
-      <button
-        onClick={toggleRecording}
-        className={`px-4 py-2 rounded-full ${
-          isRecording
-            ? 'bg-red-500 hover:bg-red-600'
-            : 'bg-green-500 hover:bg-green-600'
-        } text-white font-bold ${!hasPermission && 'opacity-50 cursor-not-allowed'}`}
-        disabled={!hasPermission}
-      >
-        {isRecording ? 'Stop Recording' : 'Start Recording'}
-      </button>
+      <div className="flex space-x-4 mb-4">
+        <button
+          onClick={toggleRecording}
+          className={`px-4 py-2 rounded-full ${
+            isRecording
+              ? 'bg-red-500 hover:bg-red-600'
+              : 'bg-green-500 hover:bg-green-600'
+          } text-white font-bold ${!hasPermission && 'opacity-50 cursor-not-allowed'}`}
+          disabled={!hasPermission}
+        >
+          {isRecording ? 'Stop Recording' : 'Start Recording'}
+        </button>
+
+        <button
+          onClick={saveTranscription}
+          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full"
+        >
+          Save Transcription
+        </button>
+
+        <button
+          onClick={() => sendToAzureOpenAI(finalTranscriptionRef.current)}
+          className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white font-bold rounded-full"
+        >
+          Analyze with AI
+        </button>
+      </div>
 
       {isRecording && (
         <div className="mt-2 text-red-500 animate-pulse">
@@ -150,15 +195,19 @@ const RecordingInterface = () => {
           <p className="text-gray-500">{interimTranscription}</p>
         </div>
       )}
-      <div> 
-        <button
-            onClick={saveTranscription}
-            className="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full"
-          >
-            Save Transcription
-        </button>
-    </div>
 
+      {isLoading && (
+        <div className="mt-2 text-purple-500 animate-pulse">
+          Analyzing transcription...
+        </div>
+      )}
+
+      {aiResponse && (
+        <div className="mt-4 p-3 bg-purple-100 rounded">
+          <h2 className="font-bold mb-2">AI Analysis:</h2>
+          <ReactMarkdown>{aiResponse}</ReactMarkdown>
+        </div>
+      )}
     </div>
   );
 };
